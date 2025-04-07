@@ -1,5 +1,5 @@
 import React from 'react'
-import Home from './components/Homepage/Home'
+import Home from './pages/Home'
 
 export const App = () => {
   return (
