@@ -1,7 +1,17 @@
-import React from "react";
-import { Link } from "react-router-dom"; // Import Link for internal navigation
+import React, { useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAppKitProvider } from "@reown/appkit/react";
 
 const Navbar = () => {
+  const navigate = useNavigate();
+  const { walletProvider } = useAppKitProvider("eip155");
+
+  useEffect(() => {
+    if (walletProvider) {
+      navigate("/dashboard");
+    }
+  }, [walletProvider, navigate]);
+
   return (
     // Make header background transparent
     <header className="w-full bg-transparent absolute top-0 left-0 z-50">
@@ -25,10 +35,7 @@ const Navbar = () => {
           </a>
         </nav>
 
-        {/* Connect Wallet Button - Increased text size */}
-        {/* <button className="bg-yellow-400 text-black hover:bg-yellow-500 transition-colors px-5 py-2 rounded-full font-semibold text-base">
-          Connect Wallet
-        </button> */}
+        {/* Connect Wallet Button */}
         <appkit-button />
       </div>
     </header>
