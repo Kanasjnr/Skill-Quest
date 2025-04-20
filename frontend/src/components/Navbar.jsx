@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom'; // Import Link for internal navigation
+import React from "react";
+import { Link } from "react-router-dom"; // Import Link for internal navigation
 
 const Navbar = () => {
   return (
@@ -14,15 +14,22 @@ const Navbar = () => {
         {/* Navigation Links - Increased text size */}
         <nav className="hidden md:flex items-center space-x-8 text-white text-base font-medium">
           {/* Use Links or anchor tags as appropriate */}
-          <Link to="/" className="hover:text-yellow-400 transition">Home</Link>
-          <a href="/#features" className="hover:text-yellow-400 transition">Features</a>
-          <a href="/#how-it-works" className="hover:text-yellow-400 transition">How it works</a>
+          <Link to="/" className="hover:text-yellow-400 transition">
+            Home
+          </Link>
+          <a href="/#features" className="hover:text-yellow-400 transition">
+            Features
+          </a>
+          <a href="/#how-it-works" className="hover:text-yellow-400 transition">
+            How it works
+          </a>
         </nav>
 
         {/* Connect Wallet Button - Increased text size */}
-        <button className="bg-yellow-400 text-black hover:bg-yellow-500 transition-colors px-5 py-2 rounded-full font-semibold text-base">
+        {/* <button className="bg-yellow-400 text-black hover:bg-yellow-500 transition-colors px-5 py-2 rounded-full font-semibold text-base">
           Connect Wallet
-        </button>
+        </button> */}
+        <appkit-button />
       </div>
     </header>
   );

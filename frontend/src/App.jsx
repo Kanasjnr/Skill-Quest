@@ -1,3 +1,4 @@
+import "./config/connection";
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import HomeLayout from './components/Layout/HomeLayout'
