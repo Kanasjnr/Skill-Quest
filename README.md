@@ -12,12 +12,10 @@ SkillQuest is a decentralized learning platform built on the Pharos blockchain t
 - 💰 **Learn Token (LRN) Economy**
   - Earn LRN tokens for completing courses
   - Stake tokens to access premium content
-  - Participate in governance decisions
 
 - 📜 **Blockchain-Verified Certificates**
   - Immutable proof of achievement
   - Shareable digital credentials
-  - Industry-recognized certifications
 
 - 🔐 **Secure Wallet Integration**
   - Seamless Reown AppKit integration
@@ -181,7 +179,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Tailwind CSS](https://tailwindcss.com) for styling
 - [OpenZeppelin](https://openzeppelin.com) for smart contract libraries
 
-## 💬 Community
+<!-- ## 💬 Community
 
 - [Discord](https://discord.gg/skillquest)
 - [Twitter](https://twitter.com/skillquest)
@@ -191,8 +189,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 For support:
 - Email: support@skillquest.com
-- Discord: Join our community server
-- Documentation: [docs.skillquest.com](https://docs.skillquest.com)
+- Documentation: [docs.skillquest.com](https://docs.skillquest.com) -->
 
 ## 🔄 Roadmap
 
