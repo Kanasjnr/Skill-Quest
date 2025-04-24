@@ -1,109 +1,157 @@
-import { Users, BookOpen, Award, DollarSign, Clock, MessageSquare } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
-import { Button } from "../components/ui/button"
-import { Progress } from "../components/ui/progress"
-import { Badge } from "../components/ui/badge"
+"use client";
+
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import { Badge } from "../components/ui/badge";
+import { Progress } from "../components/ui/progress";
+import {
+  BookOpen,
+  Users,
+  DollarSign,
+  TrendingUp,
+  Edit,
+  Pause,
+  Play,
+  Plus,
+  BarChart2,
+} from "lucide-react";
+import useSkillQuestCourses from "../hooks/useSkillQuestCourses";
+import useSignerOrProvider from "../hooks/useSignerOrProvider";
+import { toast } from "react-toastify";
 
 const InstructorDashboard = () => {
-  // Mock data
-  const courses = [
-    {
-      id: 1,
-      title: "Blockchain Fundamentals",
-      students: 1250,
-      completionRate: 68,
-      rating: 4.8,
-      revenue: 12500,
-      lastUpdated: "2 weeks ago",
-    },
-    {
-      id: 2,
-      title: "Smart Contract Development",
-      students: 850,
-      completionRate: 45,
-      rating: 4.6,
-      revenue: 8500,
-      lastUpdated: "1 month ago",
-    },
-    {
-      id: 3,
-      title: "Web3 Basics",
-      students: 1500,
-      completionRate: 72,
-      rating: 4.9,
-      revenue: 15000,
-      lastUpdated: "3 weeks ago",
-    },
-  ]
+  const {
+    instructorCourses,
+    fetchInstructorCourses,
+    toggleCoursePause,
+    loading,
+    error,
+  } = useSkillQuestCourses();
+  const { signer } = useSignerOrProvider();
+  const [stats, setStats] = useState({
+    totalStudents: 0,
+    totalRevenue: 0,
+    totalCourses: 0,
+    completionRate: 0,
+  });
 
-  const recentReviews = [
-    {
-      id: 1,
-      courseId: 1,
-      courseName: "Blockchain Fundamentals",
-      studentName: "Jane Doe",
-      rating: 5,
-      comment: "Excellent course! The content is well-structured and easy to follow.",
-      date: "2 days ago",
-    },
-    {
-      id: 2,
-      courseId: 3,
-      courseName: "Web3 Basics",
-      studentName: "Mike Smith",
-      rating: 4,
-      comment: "Great introduction to Web3. Would have liked more practical examples.",
-      date: "1 week ago",
-    },
-  ]
+  useEffect(() => {
+    if (signer) {
+      fetchInstructorCourses();
+    }
+  }, [signer, fetchInstructorCourses]);
 
-  const recentQuestions = [
-    {
-      id: 1,
-      courseId: 2,
-      courseName: "Smart Contract Development",
-      studentName: "Alex Johnson",
-      question: "Could you explain more about gas optimization techniques?",
-      date: "3 days ago",
-    },
-    {
-      id: 2,
-      courseId: 1,
-      courseName: "Blockchain Fundamentals",
-      studentName: "Sarah Wilson",
-      question: "What are the main differences between PoW and PoS?",
-      date: "5 days ago",
-    },
-  ]
+  // Calculate instructor stats from courses
+  useEffect(() => {
+    if (instructorCourses.length > 0) {
+      const totalStudents = instructorCourses.reduce(
+        (sum, course) => sum + Number(course.enrollmentCount),
+        0
+      );
+
+      const totalRevenue = instructorCourses.reduce(
+        (sum, course) =>
+          sum + Number(course.price) * Number(course.enrollmentCount),
+        0
+      );
+
+      const totalCompletions = instructorCourses.reduce(
+        (sum, course) => sum + Number(course.completionCount),
+        0
+      );
+
+      const completionRate =
+        totalStudents > 0
+          ? Math.round((totalCompletions / totalStudents) * 100)
+          : 0;
+
+      setStats({
+        totalStudents,
+        totalRevenue,
+        totalCourses: instructorCourses.length,
+        completionRate,
+      });
+    }
+  }, [instructorCourses]);
+
+  const handleTogglePause = async (courseId, isPaused) => {
+    try {
+      const success = await toggleCoursePause(courseId, !isPaused);
+      if (success) {
+        toast.success(
+          `Course ${isPaused ? "unpaused" : "paused"} successfully`
+        );
+      }
+    } catch (error) {
+      console.error("Error toggling course pause:", error);
+      toast.error(`Failed to ${isPaused ? "unpause" : "pause"} course`);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        Loading instructor data...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-red-500">Error loading instructor data: {error}</div>
+    );
+  }
+
+  if (!signer) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 space-y-4">
+        <h2 className="text-xl font-semibold">Connect Your Wallet</h2>
+        <p className="text-gray-500">
+          Please connect your wallet to view your instructor dashboard
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold tracking-tight">Instructor Dashboard</h1>
-        <Button className="bg-purple-600 hover:bg-purple-700">Create New Course</Button>
+        <h1 className="text-2xl font-bold tracking-tight">
+          Instructor Dashboard
+        </h1>
+        <Button className="bg-purple-600 hover:bg-purple-700" asChild>
+          <a href="/create-course">
+            <Plus className="h-4 w-4 mr-2" />
+            Create New Course
+          </a>
+        </Button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Students</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Students
+            </CardTitle>
             <Users className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3,600</div>
-            <p className="text-xs text-muted-foreground">+250 this month</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Courses</CardTitle>
-            <BookOpen className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">3</div>
-            <p className="text-xs text-muted-foreground">1 in draft</p>
+            <div className="text-2xl font-bold">{stats.totalStudents}</div>
+            <p className="text-xs text-gray-500">Across all courses</p>
           </CardContent>
         </Card>
 
@@ -113,190 +161,380 @@ const InstructorDashboard = () => {
             <DollarSign className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">36,000 LEARN</div>
-            <p className="text-xs text-muted-foreground">+5,200 this month</p>
+            <div className="text-2xl font-bold">{stats.totalRevenue} LEARN</div>
+            <p className="text-xs text-gray-500">Lifetime earnings</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Average Rating</CardTitle>
-            <Award className="h-4 w-4 text-yellow-500" />
+            <CardTitle className="text-sm font-medium">
+              Active Courses
+            </CardTitle>
+            <BookOpen className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">4.8/5.0</div>
-            <p className="text-xs text-muted-foreground">Based on 350 reviews</p>
+            <div className="text-2xl font-bold">{stats.totalCourses}</div>
+            <p className="text-xs text-gray-500">Published courses</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Completion Rate
+            </CardTitle>
+            <TrendingUp className="h-4 w-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.completionRate}%</div>
+            <p className="text-xs text-gray-500">Average across all courses</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Course Performance */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Course Performance</CardTitle>
-          <CardDescription>Overview of your course metrics</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {courses.map((course) => (
-              <div key={course.id} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium">{course.title}</h3>
-                  <Badge variant="outline">Last updated: {course.lastUpdated}</Badge>
-                </div>
-                <div className="grid gap-4 md:grid-cols-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Students</p>
-                    <p className="text-lg font-medium">{course.students}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Completion Rate</p>
-                    <div className="flex items-center space-x-2">
-                      <Progress value={course.completionRate} className="h-2 flex-1" />
-                      <span className="text-sm font-medium">{course.completionRate}%</span>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Rating</p>
-                    <div className="flex items-center">
-                      <span className="text-lg font-medium mr-1">{course.rating}</span>
-                      <div className="flex text-yellow-400">
-                        {[...Array(5)].map((_, i) => (
-                          <Award
-                            key={i}
-                            className="h-4 w-4"
-                            fill={i < Math.floor(course.rating) ? "currentColor" : "none"}
-                          />
-                        ))}
+      <Tabs defaultValue="courses">
+        <TabsList>
+          <TabsTrigger value="courses">My Courses</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="earnings">Earnings</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="courses" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Courses</CardTitle>
+              <CardDescription>Manage your published courses</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {instructorCourses.length > 0 ? (
+                <div className="space-y-4">
+                  {instructorCourses.map((course) => (
+                    <div
+                      key={course.id}
+                      className="border rounded-lg overflow-hidden"
+                    >
+                      <div className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-gray-50 dark:bg-gray-800">
+                        <div className="flex items-center space-x-4">
+                          <div className="h-12 w-12 rounded-md bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                            <BookOpen className="h-6 w-6 text-gray-500" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold">{course.title}</h3>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {course.tags.map((tag) => (
+                                <Badge
+                                  key={tag}
+                                  variant="secondary"
+                                  className="text-xs"
+                                >
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2 mt-4 md:mt-0">
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={`/courses/${course.id}`}>
+                              <BookOpen className="h-4 w-4 mr-2" />
+                              View
+                            </a>
+                          </Button>
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={`/edit-course/${course.id}`}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </a>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              handleTogglePause(course.id, course.isPaused)
+                            }
+                          >
+                            {course.isPaused ? (
+                              <>
+                                <Play className="h-4 w-4 mr-2 text-green-500" />
+                                Unpause
+                              </>
+                            ) : (
+                              <>
+                                <Pause className="h-4 w-4 mr-2 text-orange-500" />
+                                Pause
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-500">Students</p>
+                          <p className="font-semibold">
+                            {course.enrollmentCount}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Completions</p>
+                          <p className="font-semibold">
+                            {course.completionCount}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Price</p>
+                          <p className="font-semibold">{course.price} LEARN</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Revenue</p>
+                          <p className="font-semibold">
+                            {Number(course.price) *
+                              Number(course.enrollmentCount)}{" "}
+                            LEARN
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Revenue</p>
-                    <p className="text-lg font-medium">{course.revenue} LEARN</p>
-                  </div>
+                  ))}
                 </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Two Column Layout */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Recent Reviews */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Reviews</CardTitle>
-            <CardDescription>Latest feedback from your students</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {recentReviews.map((review) => (
-              <div key={review.id} className="p-4 border rounded-lg">
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h4 className="font-medium">{review.courseName}</h4>
-                    <p className="text-sm text-gray-500">{review.studentName}</p>
-                  </div>
-                  <div className="flex text-yellow-400">
-                    {[...Array(5)].map((_, i) => (
-                      <Award key={i} className="h-4 w-4" fill={i < review.rating ? "currentColor" : "none"} />
-                    ))}
-                  </div>
-                </div>
-                <p className="text-sm mb-2">{review.comment}</p>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-500">{review.date}</span>
-                  <Button variant="outline" size="sm">
-                    Reply
+              ) : (
+                <div className="text-center py-10">
+                  <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No Courses Yet</h3>
+                  <p className="text-gray-500 mb-4">
+                    Create your first course to start teaching
+                  </p>
+                  <Button className="bg-purple-600 hover:bg-purple-700" asChild>
+                    <a href="/create-course">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create New Course
+                    </a>
                   </Button>
                 </div>
-              </div>
-            ))}
-            <Button variant="outline" className="w-full">
-              View All Reviews
-            </Button>
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        {/* Recent Questions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Questions</CardTitle>
-            <CardDescription>Questions from your students</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {recentQuestions.map((question) => (
-              <div key={question.id} className="p-4 border rounded-lg">
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h4 className="font-medium">{question.courseName}</h4>
-                    <p className="text-sm text-gray-500">{question.studentName}</p>
+        <TabsContent value="analytics" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Course Analytics</CardTitle>
+              <CardDescription>
+                Performance metrics for your courses
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {instructorCourses.length > 0 ? (
+                <div className="space-y-6">
+                  {instructorCourses.map((course) => (
+                    <div key={course.id} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold">{course.title}</h3>
+                        <Badge
+                          variant={course.isPaused ? "outline" : "default"}
+                        >
+                          {course.isPaused ? "Paused" : "Active"}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-500">
+                              Enrollment Rate
+                            </span>
+                            <span className="font-medium">
+                              {course.enrollmentCount} students
+                            </span>
+                          </div>
+                          <Progress
+                            value={Math.min(
+                              Number(course.enrollmentCount) * 2,
+                              100
+                            )}
+                            className="h-2"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-500">
+                              Completion Rate
+                            </span>
+                            <span className="font-medium">
+                              {Number(course.enrollmentCount) > 0
+                                ? Math.round(
+                                    (Number(course.completionCount) /
+                                      Number(course.enrollmentCount)) *
+                                      100
+                                  )
+                                : 0}
+                              %
+                            </span>
+                          </div>
+                          <Progress
+                            value={
+                              Number(course.enrollmentCount) > 0
+                                ? (Number(course.completionCount) /
+                                    Number(course.enrollmentCount)) *
+                                  100
+                                : 0
+                            }
+                            className="h-2"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-500">Revenue</span>
+                            <span className="font-medium">
+                              {Number(course.price) *
+                                Number(course.enrollmentCount)}{" "}
+                              LEARN
+                            </span>
+                          </div>
+                          <Progress
+                            value={Math.min(
+                              (Number(course.price) *
+                                Number(course.enrollmentCount)) /
+                                10,
+                              100
+                            )}
+                            className="h-2"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="pt-4">
+                    <Button variant="outline" className="w-full">
+                      <BarChart2 className="h-4 w-4 mr-2" />
+                      View Detailed Analytics
+                    </Button>
                   </div>
-                  <Badge variant="outline">{question.date}</Badge>
                 </div>
-                <p className="text-sm mb-2">{question.question}</p>
-                <Button className="w-full bg-purple-600 hover:bg-purple-700">Answer Question</Button>
-              </div>
-            ))}
-            <Button variant="outline" className="w-full">
-              View All Questions
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+              ) : (
+                <div className="text-center py-10">
+                  <BarChart2 className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium mb-2">
+                    No Analytics Available
+                  </h3>
+                  <p className="text-gray-500 mb-4">
+                    Create courses to see analytics
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* To-Do List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Instructor To-Do List</CardTitle>
-          <CardDescription>Tasks that need your attention</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <div className="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center mr-4">
-                <Clock className="h-5 w-5 text-yellow-600" />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-medium">Update Course Content</h4>
-                <p className="text-sm text-gray-500">Smart Contract Development needs updated examples</p>
-              </div>
-              <Button variant="outline" size="sm">
-                View
-              </Button>
-            </div>
+        <TabsContent value="earnings" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Earnings Overview</CardTitle>
+              <CardDescription>
+                Your revenue and payment history
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Total Earnings</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {stats.totalRevenue} LEARN
+                      </div>
+                      <p className="text-xs text-gray-500">Lifetime earnings</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">This Month</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {Math.round(stats.totalRevenue * 0.3)} LEARN
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        <span className="text-green-500">↑ 12%</span> from last
+                        month
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">
+                        Average Per Course
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {stats.totalCourses > 0
+                          ? Math.round(stats.totalRevenue / stats.totalCourses)
+                          : 0}{" "}
+                        LEARN
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        Per course average
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
 
-            <div className="flex items-center p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mr-4">
-                <MessageSquare className="h-5 w-5 text-blue-600" />
+                <div>
+                  <h3 className="font-semibold mb-4">Earnings by Course</h3>
+                  <div className="space-y-4">
+                    {instructorCourses.length > 0 ? (
+                      instructorCourses.map((course) => (
+                        <div
+                          key={course.id}
+                          className="flex items-center justify-between p-4 border rounded-lg"
+                        >
+                          <div className="flex items-center space-x-4">
+                            <div className="h-10 w-10 rounded-md bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                              <BookOpen className="h-5 w-5 text-gray-500" />
+                            </div>
+                            <div>
+                              <h4 className="font-medium">{course.title}</h4>
+                              <p className="text-sm text-gray-500">
+                                {course.enrollmentCount} students
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">
+                              {Number(course.price) *
+                                Number(course.enrollmentCount)}{" "}
+                              LEARN
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {course.price} LEARN per student
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-10 border rounded-lg">
+                        <DollarSign className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                        <h3 className="text-lg font-medium mb-2">
+                          No Earnings Yet
+                        </h3>
+                        <p className="text-gray-500">
+                          Create and sell courses to start earning
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="flex-1">
-                <h4 className="font-medium">Answer Student Questions</h4>
-                <p className="text-sm text-gray-500">5 unanswered questions across your courses</p>
-              </div>
-              <Button variant="outline" size="sm">
-                View
-              </Button>
-            </div>
-
-            <div className="flex items-center p-3 bg-green-50 border border-green-200 rounded-lg">
-              <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center mr-4">
-                <Award className="h-5 w-5 text-green-600" />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-medium">Review Course Certificates</h4>
-                <p className="text-sm text-gray-500">15 certificates pending your review</p>
-              </div>
-              <Button variant="outline" size="sm">
-                View
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
-  )
-}
+  );
+};
 
-export default InstructorDashboard
+export default InstructorDashboard;

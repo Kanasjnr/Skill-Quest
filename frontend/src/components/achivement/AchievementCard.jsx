@@ -1,23 +1,22 @@
-import { Card, CardContent } from "../ui/card"
 import { Badge } from "../ui/badge"
 
 const AchievementCard = ({ title, description, icon, date, xp }) => {
   return (
-    <Card>
-      <CardContent className="p-4 flex items-center space-x-4">
-        <div className="flex-shrink-0 h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
-          {icon}
-        </div>
-        <div className="flex-1">
-          <h4 className="font-medium">{title}</h4>
-          <p className="text-sm text-gray-500">{description}</p>
-          <div className="flex items-center justify-between mt-1">
-            <span className="text-xs text-gray-400">{date}</span>
-            <Badge className="bg-purple-100 text-purple-700 border-purple-200">+{xp} XP</Badge>
+    <div className="flex items-start space-x-4 p-4 border rounded-lg bg-white dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/50">
+      <div className="flex-shrink-0">{icon}</div>
+      <div className="flex-1">
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="font-medium text-slate-900 dark:text-slate-100">{title}</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400">{description}</p>
           </div>
+          <Badge className="bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300 border-sky-200 dark:border-sky-800">
+            +{xp} XP
+          </Badge>
         </div>
-      </CardContent>
-    </Card>
+        <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">{date}</p>
+      </div>
+    </div>
   )
 }
 
