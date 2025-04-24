@@ -1,205 +1,440 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
-import { Card, CardContent } from "../components/ui/card"
-import { Button } from "../components/ui/button"
-import { Badge } from "../components/ui/badge"
-import { Clock, CheckCircle, AlertCircle } from "lucide-react"
-import CourseCard from "../components/courses/CourseCard"
+"use client";
+
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Progress } from "../components/ui/progress";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import { Badge } from "../components/ui/badge";
+import {
+  BookOpen,
+  CheckCircle,
+  Clock,
+  Award,
+  ExternalLink,
+  Play,
+  Filter,
+  Search,
+  Calendar,
+} from "lucide-react";
+import { Input } from "../components/ui/input";
+import useSkillQuestEnrollment from "../hooks/useSkillQuestEnrollment";
+import useSkillQuestUser from "../hooks/useSkillQuestUser";
+import useSignerOrProvider from "../hooks/useSignerOrProvider";
+import { toast } from "react-toastify";
 
 const MyLearning = () => {
-  // Mock data
-  const enrolledCourses = [
-    {
-      id: 1,
-      title: "Blockchain Fundamentals",
-      instructor: "Alex Johnson",
-      progress: 75,
-      image: "/placeholder.svg?height=200&width=300",
-      xpReward: 500,
-      tokenReward: 50,
-      lastAccessed: "2 days ago",
-    },
-    {
-      id: 2,
-      title: "Smart Contract Development",
-      instructor: "Maria Garcia",
-      progress: 30,
-      image: "/placeholder.svg?height=200&width=300",
-      xpReward: 750,
-      tokenReward: 100,
-      lastAccessed: "5 days ago",
-    },
-    {
-      id: 3,
-      title: "Web3 Basics",
-      instructor: "David Lee",
-      progress: 100,
-      image: "/placeholder.svg?height=200&width=300",
-      xpReward: 450,
-      tokenReward: 40,
-      lastAccessed: "2 weeks ago",
-      completed: true,
-    },
-    {
-      id: 4,
-      title: "Cryptocurrency Economics",
-      instructor: "Sarah Wilson",
-      progress: 100,
-      image: "/placeholder.svg?height=200&width=300",
-      xpReward: 600,
-      tokenReward: 60,
-      lastAccessed: "1 month ago",
-      completed: true,
-    },
-  ]
+  const {
+    enrolledCourses,
+    completedCourses,
+    updateProgress,
+    loading: enrollmentLoading,
+    error: enrollmentError,
+  } = useSkillQuestEnrollment();
+  const {
+    userData,
+    loading: userLoading,
+    error: userError,
+  } = useSkillQuestUser();
+  const { signer } = useSignerOrProvider();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filteredEnrolled, setFilteredEnrolled] = useState([]);
+  const [filteredCompleted, setFilteredCompleted] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const inProgressCourses = enrolledCourses.filter((course) => !course.completed)
-  const completedCourses = enrolledCourses.filter((course) => course.completed)
+  useEffect(() => {
+    setLoading(enrollmentLoading || userLoading);
+  }, [enrollmentLoading, userLoading]);
 
-  // Assignments and quizzes
-  const assignments = [
-    {
-      id: 1,
-      title: "Build a Simple Blockchain",
-      course: "Blockchain Fundamentals",
-      dueDate: "2023-07-25",
-      status: "pending",
-    },
-    {
-      id: 2,
-      title: "Smart Contract Security Analysis",
-      course: "Smart Contract Development",
-      dueDate: "2023-07-30",
-      status: "pending",
-    },
-  ]
+  // Filter courses based on search query
+  useEffect(() => {
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      setFilteredEnrolled(
+        enrolledCourses.filter((course) =>
+          course.title.toLowerCase().includes(query)
+        )
+      );
+      setFilteredCompleted(
+        completedCourses.filter((course) =>
+          course.title.toLowerCase().includes(query)
+        )
+      );
+    } else {
+      setFilteredEnrolled(enrolledCourses);
+      setFilteredCompleted(completedCourses);
+    }
+  }, [searchQuery, enrolledCourses, completedCourses]);
 
-  const quizzes = [
-    {
-      id: 1,
-      title: "Blockchain Concepts Quiz",
-      course: "Blockchain Fundamentals",
-      questions: 10,
-      timeLimit: "20 minutes",
-      status: "pending",
-    },
-    {
-      id: 2,
-      title: "Smart Contract Basics",
-      course: "Smart Contract Development",
-      questions: 15,
-      timeLimit: "30 minutes",
-      status: "completed",
-      score: "85%",
-    },
-  ]
+  const handleUpdateProgress = async (courseId, newProgress) => {
+    try {
+      const success = await updateProgress(courseId, newProgress);
+      if (success) {
+        toast.success(`Progress updated to ${newProgress}%`);
+      }
+    } catch (error) {
+      console.error("Error updating progress:", error);
+      toast.error("Failed to update progress");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        Loading your courses...
+      </div>
+    );
+  }
+
+  if (enrollmentError || userError) {
+    return (
+      <div className="text-red-500">
+        Error loading your learning data: {enrollmentError || userError}
+      </div>
+    );
+  }
+
+  if (!signer) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 space-y-4">
+        <h2 className="text-xl font-semibold">Connect Your Wallet</h2>
+        <p className="text-gray-500">
+          Please connect your wallet to view your learning progress
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold tracking-tight">My Learning</h1>
+        <Button className="bg-purple-600 hover:bg-purple-700" asChild>
+          <a href="/courses">
+            <BookOpen className="h-4 w-4 mr-2" />
+            Browse Courses
+          </a>
+        </Button>
       </div>
 
-      <Tabs defaultValue="courses">
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search your courses..."
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <Button variant="outline">
+          <Filter className="h-4 w-4 mr-2" />
+          Filter
+        </Button>
+      </div>
+
+      <Tabs defaultValue="in-progress">
         <TabsList>
-          <TabsTrigger value="courses">Courses</TabsTrigger>
-          <TabsTrigger value="assignments">Assignments</TabsTrigger>
-          <TabsTrigger value="quizzes">Quizzes</TabsTrigger>
+          <TabsTrigger value="in-progress">In Progress</TabsTrigger>
+          <TabsTrigger value="completed">Completed</TabsTrigger>
+          <TabsTrigger value="certificates">Certificates</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="courses" className="mt-6">
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold mb-4">In Progress</h2>
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {inProgressCourses.map((course) => (
-                  <CourseCard key={course.id} course={course} />
-                ))}
-              </div>
-            </div>
+        <TabsContent value="in-progress" className="mt-6">
+          <div className="space-y-4">
+            {filteredEnrolled.filter((course) => Number(course.progress) < 100)
+              .length > 0 ? (
+              filteredEnrolled
+                .filter((course) => Number(course.progress) < 100)
+                .map((course) => (
+                  <Card key={course.id}>
+                    <CardContent className="p-0">
+                      <div className="flex flex-col md:flex-row">
+                        <div className="md:w-1/4 aspect-video md:aspect-square bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                          <BookOpen className="h-12 w-12 text-gray-400" />
+                        </div>
+                        <div className="p-6 flex-1">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between mb-4">
+                            <div>
+                              <h3 className="font-semibold text-lg mb-1">
+                                {course.title}
+                              </h3>
+                              <p className="text-sm text-gray-500 mb-2">
+                                Instructor: {course.instructor.slice(0, 6)}...
+                                {course.instructor.slice(-4)}
+                              </p>
+                              <div className="flex items-center space-x-4 text-sm text-gray-500">
+                                <div className="flex items-center">
+                                  <Calendar className="h-4 w-4 mr-1" />
+                                  <span>
+                                    Enrolled:{" "}
+                                    {new Date(
+                                      course.enrollmentTime
+                                    ).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                {course.isPaused && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-yellow-600 border-yellow-300 bg-yellow-50"
+                                  >
+                                    Course Paused
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            <div className="mt-4 md:mt-0 flex flex-col items-end">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <Award className="h-4 w-4 text-purple-600" />
+                                <span className="text-sm">
+                                  {course.xpReward} XP
+                                </span>
+                                <Clock className="h-4 w-4 text-blue-500 ml-2" />
+                                <span className="text-sm">
+                                  Reward: {course.tokenReward} LEARN
+                                </span>
+                              </div>
+                              <div className="flex space-x-2">
+                                <Button variant="outline" size="sm" asChild>
+                                  <a href={`/courses/${course.id}`}>
+                                    <ExternalLink className="h-4 w-4 mr-2" />
+                                    View Course
+                                  </a>
+                                </Button>
+                                <Button
+                                  className="bg-purple-600 hover:bg-purple-700"
+                                  size="sm"
+                                  asChild
+                                >
+                                  <a href={`/learn/${course.id}`}>
+                                    <Play className="h-4 w-4 mr-2" />
+                                    Continue
+                                  </a>
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
 
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Completed</h2>
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {completedCourses.map((course) => (
-                  <CourseCard key={course.id} course={course} />
-                ))}
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium">
+                                Progress
+                              </span>
+                              <span className="text-sm text-gray-500">
+                                {course.progress}%
+                              </span>
+                            </div>
+                            <Progress
+                              value={Number(course.progress)}
+                              className="h-2"
+                            />
+                            <div className="flex justify-between pt-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  handleUpdateProgress(course.id, 25)
+                                }
+                                disabled={Number(course.progress) >= 25}
+                              >
+                                25%
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  handleUpdateProgress(course.id, 50)
+                                }
+                                disabled={Number(course.progress) >= 50}
+                              >
+                                50%
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  handleUpdateProgress(course.id, 75)
+                                }
+                                disabled={Number(course.progress) >= 75}
+                              >
+                                75%
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  handleUpdateProgress(course.id, 100)
+                                }
+                                disabled={Number(course.progress) >= 100}
+                              >
+                                Complete
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+            ) : (
+              <div className="text-center py-10">
+                <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium mb-2">
+                  No Courses In Progress
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  Enroll in courses to start learning
+                </p>
+                <Button className="bg-purple-600 hover:bg-purple-700" asChild>
+                  <a href="/courses">Browse Courses</a>
+                </Button>
               </div>
-            </div>
+            )}
           </div>
         </TabsContent>
 
-        <TabsContent value="assignments" className="mt-6">
+        <TabsContent value="completed" className="mt-6">
           <div className="space-y-4">
-            {assignments.map((assignment) => (
-              <Card key={assignment.id}>
-                <CardContent className="p-6 flex flex-col md:flex-row md:items-center md:justify-between">
-                  <div className="space-y-1 mb-4 md:mb-0">
-                    <h3 className="font-semibold">{assignment.title}</h3>
-                    <p className="text-sm text-gray-500">Course: {assignment.course}</p>
-                    <div className="flex items-center mt-2">
-                      <Clock className="h-4 w-4 text-gray-500 mr-1" />
-                      <span className="text-sm">Due: {new Date(assignment.dueDate).toLocaleDateString()}</span>
+            {filteredCompleted.length > 0 ||
+            filteredEnrolled.filter((course) => Number(course.progress) === 100)
+              .length > 0 ? (
+              [
+                ...filteredCompleted,
+                ...filteredEnrolled.filter(
+                  (course) => Number(course.progress) === 100
+                ),
+              ].map((course) => (
+                <Card key={course.id}>
+                  <CardContent className="p-0">
+                    <div className="flex flex-col md:flex-row">
+                      <div className="md:w-1/4 aspect-video md:aspect-square bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                        <CheckCircle className="h-12 w-12 text-green-500" />
+                      </div>
+                      <div className="p-6 flex-1">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between mb-4">
+                          <div>
+                            <div className="flex items-center">
+                              <h3 className="font-semibold text-lg mb-1">
+                                {course.title}
+                              </h3>
+                              <Badge className="ml-2 bg-green-100 text-green-800">
+                                Completed
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-gray-500 mb-2">
+                              Instructor: {course.instructor.slice(0, 6)}...
+                              {course.instructor.slice(-4)}
+                            </p>
+                          </div>
+                          <div className="mt-4 md:mt-0 flex flex-col items-end">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <Award className="h-4 w-4 text-purple-600" />
+                              <span className="text-sm">
+                                {course.xpReward} XP
+                              </span>
+                              <Clock className="h-4 w-4 text-blue-500 ml-2" />
+                              <span className="text-sm">
+                                Reward: {course.tokenReward} LEARN
+                              </span>
+                            </div>
+                            <div className="flex space-x-2">
+                              <Button variant="outline" size="sm" asChild>
+                                <a href={`/courses/${course.id}`}>
+                                  <ExternalLink className="h-4 w-4 mr-2" />
+                                  View Course
+                                </a>
+                              </Button>
+                              <Button
+                                className="bg-green-600 hover:bg-green-700"
+                                size="sm"
+                              >
+                                <Award className="h-4 w-4 mr-2" />
+                                View Certificate
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">
+                              Progress
+                            </span>
+                            <span className="text-sm text-gray-500">100%</span>
+                          </div>
+                          <Progress value={100} className="h-2" />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge
-                      variant={assignment.status === "completed" ? "success" : "outline"}
-                      className={
-                        assignment.status === "completed" ? "bg-green-100 text-green-800 border-green-200" : ""
-                      }
-                    >
-                      {assignment.status === "completed" ? "Completed" : "Pending"}
-                    </Badge>
-                    <Button>{assignment.status === "completed" ? "View Submission" : "Start Assignment"}</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <div className="text-center py-10">
+                <CheckCircle className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium mb-2">
+                  No Completed Courses
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  Complete courses to see them here
+                </p>
+                <Button className="bg-purple-600 hover:bg-purple-700" asChild>
+                  <a href="/courses">Browse Courses</a>
+                </Button>
+              </div>
+            )}
           </div>
         </TabsContent>
 
-        <TabsContent value="quizzes" className="mt-6">
-          <div className="space-y-4">
-            {quizzes.map((quiz) => (
-              <Card key={quiz.id}>
-                <CardContent className="p-6 flex flex-col md:flex-row md:items-center md:justify-between">
-                  <div className="space-y-1 mb-4 md:mb-0">
-                    <h3 className="font-semibold">{quiz.title}</h3>
-                    <p className="text-sm text-gray-500">Course: {quiz.course}</p>
-                    <div className="flex items-center space-x-4 mt-2">
-                      <div className="flex items-center">
-                        <AlertCircle className="h-4 w-4 text-gray-500 mr-1" />
-                        <span className="text-sm">{quiz.questions} questions</span>
-                      </div>
-                      <div className="flex items-center">
-                        <Clock className="h-4 w-4 text-gray-500 mr-1" />
-                        <span className="text-sm">{quiz.timeLimit}</span>
-                      </div>
-                    </div>
-                    {quiz.status === "completed" && (
-                      <div className="flex items-center mt-2">
-                        <CheckCircle className="h-4 w-4 text-green-500 mr-1" />
-                        <span className="text-sm">Score: {quiz.score}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge
-                      variant={quiz.status === "completed" ? "success" : "outline"}
-                      className={quiz.status === "completed" ? "bg-green-100 text-green-800 border-green-200" : ""}
-                    >
-                      {quiz.status === "completed" ? "Completed" : "Pending"}
-                    </Badge>
-                    <Button>{quiz.status === "completed" ? "Review Quiz" : "Start Quiz"}</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+        <TabsContent value="certificates" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Certificates</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {userData?.totalCertificates > 0 ? (
+                <div className="text-center py-10">
+                  <Award className="h-12 w-12 mx-auto text-purple-600 mb-4" />
+                  <h3 className="text-lg font-medium mb-2">
+                    You have {userData.totalCertificates} certificates
+                  </h3>
+                  <p className="text-gray-500 mb-4">
+                    View all your certificates in one place
+                  </p>
+                  <Button className="bg-purple-600 hover:bg-purple-700" asChild>
+                    <a href="/certificates">View All Certificates</a>
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center py-10">
+                  <Award className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium mb-2">
+                    No Certificates Yet
+                  </h3>
+                  <p className="text-gray-500 mb-4">
+                    Complete courses to earn certificates
+                  </p>
+                  <Button className="bg-purple-600 hover:bg-purple-700" asChild>
+                    <a href="/courses">Browse Courses</a>
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
-  )
-}
+  );
+};
 
-export default MyLearning
+export default MyLearning;

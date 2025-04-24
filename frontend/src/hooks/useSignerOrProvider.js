@@ -1,7 +1,7 @@
 import { useAppKitProvider } from "@reown/appkit/react";
 import { BrowserProvider } from "ethers";
 import { useEffect, useMemo, useState } from "react";
-import { readOnlyProvider } from "../constant/readOnlyProvider";
+import { readOnlyProvider } from "../Constants/readOnlyProvider";
 
 const useSignerOrProvider = () => {
   const [signer, updateSigner] = useState();
