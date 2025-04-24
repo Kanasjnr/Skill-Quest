@@ -12,12 +12,10 @@ SkillQuest is a decentralized learning platform built on the Pharos blockchain t
 - 💰 **Learn Token (LRN) Economy**
   - Earn LRN tokens for completing courses
   - Stake tokens to access premium content
-  - Participate in governance decisions
 
 - 📜 **Blockchain-Verified Certificates**
   - Immutable proof of achievement
   - Shareable digital credentials
-  - Industry-recognized certifications
 
 - 🔐 **Secure Wallet Integration**
   - Seamless Reown AppKit integration
