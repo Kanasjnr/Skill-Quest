@@ -1,17 +1,7 @@
-import React, { useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useAppKitProvider } from "@reown/appkit/react";
+import React from "react";
+import { Link } from "react-router-dom";
 
 const Navbar = () => {
-  const navigate = useNavigate();
-  const { walletProvider } = useAppKitProvider("eip155");
-
-  useEffect(() => {
-    if (walletProvider) {
-      navigate("/dashboard");
-    }
-  }, [walletProvider, navigate]);
-
   return (
     // Make header background transparent
     <header className="w-full bg-transparent absolute top-0 left-0 z-50">

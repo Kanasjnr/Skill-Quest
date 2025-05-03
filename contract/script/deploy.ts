@@ -4,6 +4,7 @@ import * as path from "path"
 
 async function main() {
   console.log("Starting SkillQuest deployment...")
+  console.log(`Network: ${network.name}`)
 
   // Get the deployer account
   const [deployer] = await ethers.getSigners()
@@ -11,7 +12,13 @@ async function main() {
 
   // Get balance using provider instead of directly from signer
   const initialBalance = await ethers.provider.getBalance(deployer.address)
-  console.log(`Account balance: ${ethers.formatEther(initialBalance)} ETH`)
+  console.log(`Account balance: ${ethers.formatEther(initialBalance)} PPT`)
+
+  // Check if balance is sufficient
+  const minBalance = ethers.parseEther("0.1") // Minimum 0.1 PPT for deployment
+  if (initialBalance < minBalance) {
+    throw new Error(`Insufficient balance. Please get some test PPT from the Pharos Devnet faucet`)
+  }
 
   // Deploy SkillQuestToken
   console.log("Deploying SkillQuestToken...")
@@ -50,7 +57,7 @@ async function main() {
   // Log deployment costs
   const finalBalance = await ethers.provider.getBalance(deployer.address)
   const deploymentCost = initialBalance - finalBalance
-  console.log(`Total deployment cost: ${ethers.formatEther(deploymentCost)} ETH`)
+  console.log(`Total deployment cost: ${ethers.formatEther(deploymentCost)} PPT`)
 
   // Save deployment information to a file
   const deploymentInfo = {
