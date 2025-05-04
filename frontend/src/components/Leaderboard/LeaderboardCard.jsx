@@ -1,173 +1,243 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Avatar, AvatarFallback } from "../ui/avatar"
+import { Award, TrendingUp } from "lucide-react"
+import { Card, CardContent } from "../ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar"
 import { Badge } from "../ui/badge"
-import { Zap, Trophy } from "lucide-react"
-import useSkillQuestUser from "../../hooks/useSkillQuestUser"
+import { Skeleton } from "../ui/skeleton"
+import useSkillQuestLeaderboard from "../../hooks/useSkillQuestLeaderboard"
 import useSignerOrProvider from "../../hooks/useSignerOrProvider"
 
 const LeaderboardCard = () => {
-  // Mock data as fallback
-  const mockLeaderboard = [
-    {
-      id: 1,
-      address: "0x1234...5678",
-      username: "blockchain_master",
-      xp: 2450,
-      level: 25,
-      position: 1,
-    },
-    {
-      id: 2,
-      address: "0xabcd...efgh",
-      username: "crypto_learner",
-      xp: 2100,
-      level: 22,
-      position: 2,
-    },
-    {
-      id: 3,
-      address: "0x9876...5432",
-      username: "web3_developer",
-      xp: 1950,
-      level: 20,
-      position: 3,
-    },
-    {
-      id: 4,
-      address: "0xijkl...mnop",
-      username: "defi_explorer",
-      xp: 1800,
-      level: 19,
-      position: 4,
-    },
-    {
-      id: 5,
-      address: "0xqrst...uvwx",
-      username: "nft_collector",
-      xp: 1650,
-      level: 17,
-      position: 5,
-    },
-  ]
-
-  const [leaderboardData, setLeaderboardData] = useState(mockLeaderboard)
-  const { userData } = useSkillQuestUser()
+  const [activeTab, setActiveTab] = useState("xp")
+  const { leaderboard, fetchLeaderboard, loading } = useSkillQuestLeaderboard()
   const { signer } = useSignerOrProvider()
+  const [userRank, setUserRank] = useState(null)
 
-  // In a real implementation, you would fetch leaderboard data from the blockchain
-  // This is a placeholder for where you would integrate with a leaderboard API or contract
   useEffect(() => {
-    // If we have user data, we could potentially add the current user to the leaderboard
-    if (userData && signer) {
-      const fetchLeaderboard = async () => {
+    const loadLeaderboardData = async () => {
+      if (signer) {
         try {
-          // This would be replaced with actual blockchain data fetching
-          // For now, we'll just use the mock data
+          await fetchLeaderboard()
 
-          // Example of how you might add the current user to the leaderboard
-          const userAddress = await signer.getAddress()
-          const shortenedAddress = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`
+          // Find current user's rank if they're on the leaderboard
+          if (leaderboard?.length > 0) {
+            const address = await signer.getAddress()
+            const userIndex = leaderboard.findIndex((user) => user.address.toLowerCase() === address.toLowerCase())
 
-          // Check if user is already in the leaderboard
-          const userInLeaderboard = mockLeaderboard.some(
-            (user) => user.address.toLowerCase() === shortenedAddress.toLowerCase(),
-          )
-
-          if (!userInLeaderboard && userData.xp) {
-            // Create a copy of the leaderboard with the user added
-            const newLeaderboard = [...mockLeaderboard]
-
-            // Add user to leaderboard
-            newLeaderboard.push({
-              id: 6,
-              address: shortenedAddress,
-              username: `user_${shortenedAddress.slice(2, 6)}`,
-              xp: Number(userData.xp),
-              level: Math.floor(Number(userData.xp) / 100) + 1,
-              position: 6,
-            })
-
-            // Sort by XP
-            newLeaderboard.sort((a, b) => b.xp - a.xp)
-
-            // Update positions
-            newLeaderboard.forEach((user, index) => {
-              user.position = index + 1
-            })
-
-            // Take top 5
-            setLeaderboardData(newLeaderboard.slice(0, 5))
+            if (userIndex !== -1) {
+              setUserRank({
+                ...leaderboard[userIndex],
+                position: userIndex + 1,
+              })
+            }
           }
-        } catch (error) {
-          console.error("Error fetching leaderboard:", error)
+        } catch (err) {
+          console.error("Error loading leaderboard data:", err)
         }
       }
-
-      fetchLeaderboard()
     }
-  }, [userData, signer])
 
-  const getPositionColor = (position) => {
-    switch (position) {
-      case 1:
-        return "text-yellow-500"
-      case 2:
-        return "text-slate-400"
-      case 3:
-        return "text-amber-600"
+    loadLeaderboardData()
+  }, [signer, fetchLeaderboard, leaderboard])
+
+  // Get the appropriate icon for the leaderboard type
+  const getLeaderboardIcon = (type) => {
+    switch (type) {
+      case "xp":
+        return <Award className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />
+      case "courses":
+        return <TrendingUp className="h-5 w-5 text-green-500 dark:text-green-400" />
+      case "achievements":
+        return <Award className="h-5 w-5 text-purple-500 dark:text-purple-400" />
       default:
-        return "text-slate-600 dark:text-slate-400"
+        return <Award className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />
     }
   }
 
-  const getPositionIcon = (position) => {
-    switch (position) {
-      case 1:
-        return <Trophy className={`h-5 w-5 ${getPositionColor(position)}`} />
-      case 2:
-        return <Trophy className={`h-5 w-5 ${getPositionColor(position)}`} />
-      case 3:
-        return <Trophy className={`h-5 w-5 ${getPositionColor(position)}`} />
+  // Get the appropriate value for the leaderboard type
+  const getLeaderboardValue = (user, type) => {
+    switch (type) {
+      case "xp":
+        return `${user.xp || 0} XP`
+      case "courses":
+        return `${user.completedCourses || 0} Courses`
+      case "achievements":
+        return `${user.achievements || 0} Badges`
       default:
-        return <span className={`font-medium ${getPositionColor(position)}`}>{position}</span>
+        return `${user.xp || 0} XP`
     }
   }
+
+  // Get the appropriate badge for the top 3 positions
+  const getPositionBadge = (position) => {
+    switch (position) {
+      case 1:
+        return (
+          <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800">
+            1st
+          </Badge>
+        )
+      case 2:
+        return (
+          <Badge className="bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600">
+            2nd
+          </Badge>
+        )
+      case 3:
+        return (
+          <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 border-amber-200 dark:border-amber-800">
+            3rd
+          </Badge>
+        )
+      default:
+        return <Badge className="bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300">{position}th</Badge>
+    }
+  }
+
+  // Generate initials from name
+  const getInitials = (name) => {
+    if (!name) return "U"
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .substring(0, 2)
+  }
+
+  // Filter leaderboard based on active tab
+  const getFilteredLeaderboard = () => {
+    if (!leaderboard || leaderboard.length === 0) return []
+
+    // Create a copy of the leaderboard to avoid mutating the original
+    const filteredLeaderboard = [...leaderboard]
+
+    // Sort based on the active tab
+    switch (activeTab) {
+      case "xp":
+        return filteredLeaderboard.sort((a, b) => (b.xp || 0) - (a.xp || 0))
+      case "courses":
+        return filteredLeaderboard.sort((a, b) => (b.completedCourses || 0) - (a.completedCourses || 0))
+      case "achievements":
+        return filteredLeaderboard.sort((a, b) => (b.achievements || 0) - (a.achievements || 0))
+      default:
+        return filteredLeaderboard
+    }
+  }
+
+  const filteredLeaderboard = getFilteredLeaderboard()
 
   return (
-    <div className="space-y-4">
-      {leaderboardData.map((user) => (
-        <div
-          key={user.id}
-          className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center justify-center w-8">{getPositionIcon(user.position)}</div>
-            <Avatar className="h-10 w-10 border-2 border-slate-200 dark:border-slate-700">
-              <AvatarFallback className="bg-sky-100 text-sky-700 dark:bg-sky-900 dark:text-sky-300">
-                {user.username.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-medium text-slate-900 dark:text-slate-100">{user.username}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">{user.address}</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            <div className="flex flex-col items-end">
-              <div className="flex items-center">
-                <Zap className="h-3.5 w-3.5 text-yellow-500 mr-1" />
-                <span className="font-medium text-slate-900 dark:text-slate-100">{user.xp} XP</span>
-              </div>
-              <Badge className="mt-1 text-xs bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300">
-                Level {user.level}
-              </Badge>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
+    <Card>
+      <CardContent className="p-0">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="xp">XP Leaders</TabsTrigger>
+            <TabsTrigger value="courses">Course Completions</TabsTrigger>
+            <TabsTrigger value="achievements">Achievement Leaders</TabsTrigger>
+          </TabsList>
+
+          {["xp", "courses", "achievements"].map((tabValue) => (
+            <TabsContent key={tabValue} value={tabValue} className="p-4 pt-6">
+              {loading ? (
+                // Loading state
+                <div className="space-y-4">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="flex items-center space-x-4">
+                      <Skeleton className="h-8 w-8 rounded-full" />
+                      <div className="space-y-2 flex-1">
+                        <Skeleton className="h-4 w-[200px]" />
+                        <Skeleton className="h-3 w-[100px]" />
+                      </div>
+                      <Skeleton className="h-6 w-16" />
+                    </div>
+                  ))}
+                </div>
+              ) : filteredLeaderboard.length > 0 ? (
+                // Leaderboard data
+                <div className="space-y-4">
+                  {filteredLeaderboard.slice(0, 5).map((user, index) => (
+                    <div key={index} className="flex items-center space-x-4">
+                      <Avatar className="h-10 w-10 border-2 border-slate-200 dark:border-slate-700">
+                        <AvatarImage
+                          src={user.profileImage || "/placeholder.svg?height=40&width=40&query=user"}
+                          alt={user.name}
+                        />
+                        <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-center">
+                          <p className="font-medium text-slate-900 dark:text-slate-100">{user.name}</p>
+                          <div className="ml-2">{getPositionBadge(index + 1)}</div>
+                        </div>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                          {user.title || "SkillQuest Learner"}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {getLeaderboardIcon(tabValue)}
+                        <span className="font-medium">{getLeaderboardValue(user, tabValue)}</span>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Show user's position if not in top 5 */}
+                  {userRank && userRank.position > 5 && (
+                    <>
+                      <div className="relative py-2">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-slate-200 dark:border-slate-700"></div>
+                        </div>
+                        <div className="relative flex justify-center">
+                          <span className="bg-white dark:bg-slate-800 px-2 text-xs text-slate-500 dark:text-slate-400">
+                            Your Ranking
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-4 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-md">
+                        <Avatar className="h-10 w-10 border-2 border-sky-200 dark:border-sky-700">
+                          <AvatarImage
+                            src={userRank.profileImage || "/placeholder.svg?height=40&width=40&query=user"}
+                            alt={userRank.name}
+                          />
+                          <AvatarFallback>{getInitials(userRank.name)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="flex items-center">
+                            <p className="font-medium text-slate-900 dark:text-slate-100">{userRank.name}</p>
+                            <div className="ml-2">{getPositionBadge(userRank.position)}</div>
+                          </div>
+                          <p className="text-sm text-slate-500 dark:text-slate-400">
+                            {userRank.title || "SkillQuest Learner"}
+                          </p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {getLeaderboardIcon(tabValue)}
+                          <span className="font-medium">{getLeaderboardValue(userRank, tabValue)}</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                // Empty state
+                <div className="text-center py-8">
+                  <Award className="mx-auto h-12 w-12 text-slate-400" />
+                  <h3 className="mt-2 text-lg font-medium text-slate-900 dark:text-slate-100">No data yet</h3>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    Be the first to join the leaderboard!
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+          ))}
+        </Tabs>
+      </CardContent>
+    </Card>
   )
 }
 

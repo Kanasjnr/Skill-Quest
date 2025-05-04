@@ -1,448 +1,317 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams } from "react-router-dom"
-import { Clock, Award, Zap, BookOpen, CheckCircle, Users, Star, MessageSquare, Share2 } from "lucide-react"
+import { useParams, useNavigate } from "react-router-dom"
+import { Clock, Award, Zap, BookOpen, Users, List, Loader2, AlertCircle } from 'lucide-react'
 import { Button } from "../components/ui/button"
-import { Progress } from "../components/ui/progress"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Badge } from "../components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
-import { Separator } from "../components/ui/separator"
-import useSkillQuestCourses from "../hooks/useSkillQuestCourses"
-import useSkillQuestEnrollment from "../hooks/useSkillQuestEnrollment"
-import useSkillQuestToken from "../hooks/useSkillQuestToken"
-import useSignerOrProvider from "../hooks/useSignerOrProvider"
 import { toast } from "react-toastify"
+import useSkillQuestCourses from "../hooks/useSkillQuestCourses"
+import useSignerOrProvider from "../hooks/useSignerOrProvider"
 
 const CourseDetails = () => {
-  const { id } = useParams()
-  const courseId = Number.parseInt(id)
-  const [course, setCourse] = useState(null)
-  const [courseProgress, setCourseProgress] = useState(0)
-  const [isEnrolled, setIsEnrolled] = useState(false)
-  const [isCompleted, setIsCompleted] = useState(false)
-  const { getCourseDetails, loading: courseLoading, error: courseError } = useSkillQuestCourses()
-  const {
-    enrollCourse,
-    getCourseProgress,
-    enrolledCourses,
-    completedCourses,
-    loading: enrollmentLoading,
-  } = useSkillQuestEnrollment()
-  const { balance, loading: tokenLoading } = useSkillQuestToken()
+  const { id: courseId } = useParams()
+  const navigate = useNavigate()
   const { signer } = useSignerOrProvider()
+  const { getCourseDetails, enrollInCourse, contract } = useSkillQuestCourses()
+  const [course, setCourse] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [isEnrolled, setIsEnrolled] = useState(false)
+  const [isCheckingEnrollment, setIsCheckingEnrollment] = useState(true)
+
+  console.log("[DEBUG] CourseDetails component mounted with courseId:", courseId)
+  console.log("[DEBUG] Current state:", { signer: !!signer, contract: !!contract, loading, error, course: !!course })
 
   useEffect(() => {
-    const fetchCourseDetails = async () => {
-      if (!courseId) return
+    console.log("[DEBUG] useEffect triggered with dependencies:", {
+      courseId,
+      hasGetCourseDetails: !!getCourseDetails,
+      hasContract: !!contract,
+      hasSigner: !!signer
+    })
 
+    const loadCourseDetails = async () => {
       try {
+        console.log("[DEBUG] Starting to load course details for ID:", courseId)
         setLoading(true)
-        const courseDetails = await getCourseDetails(courseId)
-        setCourse(courseDetails)
+        setError(null)
 
-        // Check if user is enrolled
-        const isUserEnrolled = enrolledCourses.some((c) => Number(c.id) === courseId)
-        setIsEnrolled(isUserEnrolled)
-
-        // Check if course is completed
-        const isUserCompleted = completedCourses.some((c) => Number(c.id) === courseId)
-        setIsCompleted(isUserCompleted)
-
-        // Get progress if enrolled
-        if (isUserEnrolled && signer) {
-          const progress = await getCourseProgress(courseId)
-          setCourseProgress(Number(progress))
+        // Wait for contract and signer to be available
+        if (!contract || !signer) {
+          console.log("[DEBUG] Waiting for contract and signer to be initialized...")
+          return
         }
-      } catch (error) {
-        console.error("Error fetching course details:", error)
-        toast.error("Failed to load course details")
+
+        console.log("[DEBUG] Contract and signer available, loading course details...")
+        const courseDetails = await getCourseDetails(courseId)
+        console.log("[DEBUG] Course details loaded:", courseDetails)
+        
+        if (courseDetails) {
+          setCourse(courseDetails)
+
+          // Check if user is enrolled
+          try {
+            const userAddress = await signer.getAddress()
+            const isEnrolled = await contract.courseEnrollments(BigInt(courseId), userAddress)
+            console.log("[DEBUG] Enrollment status:", isEnrolled)
+            setIsEnrolled(isEnrolled)
+          } catch (err) {
+            console.error("[DEBUG] Error checking enrollment:", err)
+          }
+        } else {
+          console.error("[DEBUG] No course details returned")
+          setError("Course not found")
+        }
+      } catch (err) {
+        console.error("[DEBUG] Error loading course details:", err)
+        console.error("[DEBUG] Error details:", {
+          message: err.message,
+          code: err.code,
+          data: err.data,
+          stack: err.stack
+        })
+        setError(err.message || "Failed to load course details")
       } finally {
         setLoading(false)
+        setIsCheckingEnrollment(false)
       }
     }
 
-    fetchCourseDetails()
-  }, [courseId, getCourseDetails, enrolledCourses, completedCourses, getCourseProgress, signer])
+    if (courseId) {
+      loadCourseDetails()
+    }
+  }, [courseId, getCourseDetails, contract, signer])
+
+  // Add effect to log state changes
+  useEffect(() => {
+    console.log("[DEBUG] State updated:", { loading, error, hasCourse: !!course })
+  }, [loading, error, course])
 
   const handleEnroll = async () => {
-    if (!signer) {
-      toast.error("Please connect your wallet to enroll")
-      return
-    }
-
-    if (!course) return
-
-    // Check if user has enough tokens
-    if (Number(balance) < Number(course.price)) {
-      toast.error(`Insufficient LEARN token balance. You need ${course.price} LEARN tokens.`)
-      return
-    }
+    if (!courseId) return
 
     try {
-      const result = await enrollCourse(courseId)
-      if (result) {
+      const success = await enrollInCourse(courseId)
+      if (success) {
         setIsEnrolled(true)
-        setCourseProgress(0)
-        toast.success("Successfully enrolled in the course!")
+        navigate(`/learn/${courseId}`)
       }
-    } catch (error) {
-      console.error("Enrollment error:", error)
-      toast.error("Failed to enroll in the course")
+    } catch (err) {
+      console.error("[DEBUG] Error enrolling in course:", err)
     }
   }
 
-  if (loading || courseLoading || enrollmentLoading || tokenLoading) {
-    return <div className="flex justify-center items-center h-64">Loading course details...</div>
+  const handleContinueLearning = () => {
+    navigate(`/learn/${courseId}`)
   }
 
-  if (courseError) {
-    return <div className="text-red-500">Error loading course: {courseError}</div>
-  }
-
-  if (!course) {
-    return <div className="text-center py-10">Course not found</div>
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Course Header */}
-      <div className="relative">
-        <div className="aspect-[21/9] w-full overflow-hidden rounded-lg">
-          <img
-            src={course.metadataURI || "/placeholder.svg?height=400&width=800"}
-            alt={course.title}
-            className="w-full h-full object-cover"
-          />
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
         </div>
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end">
-          <div className="p-6 text-white">
-            <div className="flex flex-wrap gap-2 mb-2">
-              {course.tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="bg-white/20 text-white">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-            <h1 className="text-2xl md:text-3xl font-bold mb-2">{course.title}</h1>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <div className="flex items-center">
-                <Users className="h-4 w-4 mr-1" />
-                <span>{course.enrollmentCount} students</span>
-              </div>
-              <div className="flex items-center">
-                <Clock className="h-4 w-4 mr-1" />
-                <span>{course.duration} days</span>
-              </div>
-              <div className="flex items-center">
-                <BookOpen className="h-4 w-4 mr-1" />
-                <span>{course.completionCount} completed</span>
-              </div>
-            </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">Error Loading Course</h2>
+            <p className="text-slate-600 dark:text-slate-400">{error}</p>
+            <Button onClick={() => navigate("/courses")} className="mt-4">
+              Back to Courses
+            </Button>
           </div>
         </div>
       </div>
+    )
+  }
 
-      {/* Course Content */}
-      <div className="grid md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
-          <Tabs defaultValue="overview">
-            <TabsList>
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
-              <TabsTrigger value="instructor">Instructor</TabsTrigger>
-              <TabsTrigger value="reviews">Reviews</TabsTrigger>
-            </TabsList>
+  if (!course) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">Course Not Found</h2>
+            <p className="text-slate-600 dark:text-slate-400">The course you're looking for doesn't exist or has been removed.</p>
+            <Button onClick={() => navigate("/courses")} className="mt-4">
+              Back to Courses
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
-            <TabsContent value="overview" className="space-y-4 mt-6">
-              <div>
-                <h2 className="text-xl font-semibold mb-2">About This Course</h2>
-                <p className="text-gray-700 dark:text-gray-300">{course.description}</p>
-              </div>
+  // Calculate total lessons
+  const totalLessons = course.modules?.reduce((total, module) => total + (module.lessons?.length || 0), 0) || 0
 
-              <div>
-                <h2 className="text-xl font-semibold mb-2">What You'll Learn</h2>
-                <ul className="grid md:grid-cols-2 gap-2">
-                  <li className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                    <span>Understand core concepts and principles</span>
-                  </li>
-                  <li className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                    <span>Apply knowledge in practical scenarios</span>
-                  </li>
-                  <li className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                    <span>Develop critical thinking skills</span>
-                  </li>
-                  <li className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                    <span>Gain practical experience through exercises</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div>
-                <h2 className="text-xl font-semibold mb-2">Prerequisites</h2>
-                {course.prerequisites && course.prerequisites.length > 0 ? (
-                  <ul className="list-disc pl-5 space-y-1">
-                    {course.prerequisites.map((prereqId, index) => (
-                      <li key={index}>Course #{prereqId}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-gray-700 dark:text-gray-300">
-                    No prerequisites required. This course is suitable for beginners.
-                  </p>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="curriculum" className="space-y-4 mt-6">
-              <h2 className="text-xl font-semibold mb-2">Course Curriculum</h2>
-              <div className="space-y-4">
-                <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle className="text-lg">Module 1: Introduction</CardTitle>
-                  </CardHeader>
-                  <CardContent className="py-0">
-                    <ul className="divide-y">
-                      <li className="py-3 flex justify-between items-center">
-                        <div className="flex items-center">
-                          <div className="h-5 w-5 border border-gray-300 rounded-full mr-2"></div>
-                          <span>Course Overview</span>
-                        </div>
-                        <span className="text-sm text-gray-500">15 min</span>
-                      </li>
-                      <li className="py-3 flex justify-between items-center">
-                        <div className="flex items-center">
-                          <div className="h-5 w-5 border border-gray-300 rounded-full mr-2"></div>
-                          <span>Key Concepts</span>
-                        </div>
-                        <span className="text-sm text-gray-500">20 min</span>
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle className="text-lg">Module 2: Core Principles</CardTitle>
-                  </CardHeader>
-                  <CardContent className="py-0">
-                    <ul className="divide-y">
-                      <li className="py-3 flex justify-between items-center">
-                        <div className="flex items-center">
-                          <div className="h-5 w-5 border border-gray-300 rounded-full mr-2"></div>
-                          <span>Fundamental Principles</span>
-                        </div>
-                        <span className="text-sm text-gray-500">25 min</span>
-                      </li>
-                      <li className="py-3 flex justify-between items-center">
-                        <div className="flex items-center">
-                          <div className="h-5 w-5 border border-gray-300 rounded-full mr-2"></div>
-                          <span>Advanced Concepts</span>
-                        </div>
-                        <span className="text-sm text-gray-500">30 min</span>
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="instructor" className="mt-6">
-              <div className="flex items-start space-x-4">
-                <Avatar className="h-16 w-16">
-                  <AvatarImage src="/placeholder.svg?height=64&width=64" />
-                  <AvatarFallback className="bg-purple-500 text-white text-lg">
-                    {course.instructor.slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <h2 className="text-xl font-semibold">Instructor</h2>
-                  <p className="text-gray-500 mb-2">{course.instructor}</p>
-                  <p className="text-gray-700 dark:text-gray-300">
-                    This instructor has created {course.title} and is an expert in this field.
-                  </p>
-                  <div className="mt-4 flex space-x-2">
-                    <Button variant="outline" size="sm">
-                      View Profile
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Contact
-                    </Button>
-                  </div>
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Content */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* Course Header */}
+          <div className="space-y-4">
+            <div className="aspect-video relative bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden">
+              {course.metadataURI ? (
+                <img
+                  src={course.metadataURI}
+                  alt={course.title}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <BookOpen className="h-16 w-16 text-slate-400" />
                 </div>
-              </div>
-            </TabsContent>
+              )}
+            </div>
 
-            <TabsContent value="reviews" className="mt-6">
-              <div className="space-y-6">
-                <div className="flex items-center space-x-4">
-                  <div className="text-center">
-                    <div className="text-4xl font-bold">4.8</div>
-                    <div className="flex text-yellow-400 mt-1">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className="h-4 w-4" fill={i < 4 ? "currentColor" : "none"} />
-                      ))}
-                    </div>
-                    <div className="text-sm text-gray-500 mt-1">{course.enrollmentCount} students</div>
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">{course.title}</h1>
+              <p className="text-slate-600 dark:text-slate-400">{course.description}</p>
+            </div>
+
+            <div className="flex flex-wrap gap-4 text-sm text-slate-600 dark:text-slate-400">
+              <div className="flex items-center">
+                <Users className="h-4 w-4 mr-1" />
+                <span>{course.enrollmentCount || 0} students enrolled</span>
+              </div>
+              <div className="flex items-center">
+                <Clock className="h-4 w-4 mr-1" />
+                <span>{course.duration || 30} days access</span>
+              </div>
+              <div className="flex items-center">
+                <BookOpen className="h-4 w-4 mr-1" />
+                <span>{course.modules?.length || 0} modules</span>
+              </div>
+              <div className="flex items-center">
+                <List className="h-4 w-4 mr-1" />
+                <span>{totalLessons} lessons</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Course Content */}
+          <div className="space-y-6">
+            <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Course Content</h2>
+            
+            {course.modules?.map((module, moduleIndex) => (
+              <div key={module.id} className="border rounded-lg overflow-hidden">
+                <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800">
+                  <div className="flex items-center">
+                    <span className="font-medium text-slate-900 dark:text-slate-100">
+                      Module {moduleIndex + 1}: {module.title}
+                    </span>
                   </div>
-                  <div className="flex-1">
-                    {[5, 4, 3, 2, 1].map((rating) => (
-                      <div key={rating} className="flex items-center space-x-2 mb-1">
-                        <div className="text-sm w-2">{rating}</div>
-                        <Star className="h-4 w-4 text-yellow-400" />
-                        <Progress
-                          value={rating === 5 ? 70 : rating === 4 ? 20 : rating === 3 ? 7 : rating === 2 ? 2 : 1}
-                          className="h-2 flex-1"
-                        />
-                        <div className="text-sm w-8">
-                          {rating === 5
-                            ? "70%"
-                            : rating === 4
-                              ? "20%"
-                              : rating === 3
-                                ? "7%"
-                                : rating === 2
-                                  ? "2%"
-                                  : "1%"}
+                  <span className="text-sm text-slate-500">{module.lessons?.length || 0} lessons</span>
+                </div>
+                <div className="p-4 space-y-2 bg-white dark:bg-slate-900">
+                  {module.lessons?.map((lesson, lessonIndex) => (
+                    <div
+                      key={lesson.id}
+                      className="flex items-center justify-between p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                          <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                            {lessonIndex + 1}
+                          </span>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-slate-900 dark:text-slate-100">{lesson.title}</h4>
+                          <p className="text-sm text-slate-500">{lesson.description}</p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-4">
-                  {/* Sample reviews */}
-                  <div className="space-y-4">
-                    <div className="flex items-start space-x-4">
-                      <Avatar>
-                        <AvatarFallback className="bg-green-500 text-white">JD</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-medium">Jane Doe</h4>
-                          <span className="text-sm text-gray-500">2 weeks ago</span>
-                        </div>
-                        <div className="flex text-yellow-400 my-1">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className="h-3 w-3" fill="currentColor" />
-                          ))}
-                        </div>
-                        <p className="text-gray-700 dark:text-gray-300">
-                          Excellent course! The content is well-structured and easy to follow.
-                        </p>
+                      <div className="flex items-center space-x-2">
+                        <Badge variant="outline" className="text-xs">
+                          {lesson.contentType}
+                        </Badge>
+                        <span className="text-sm text-slate-500">{lesson.duration} min</span>
                       </div>
                     </div>
-                    <div className="flex items-start space-x-4">
-                      <Avatar>
-                        <AvatarFallback className="bg-blue-500 text-white">MS</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-medium">Mike Smith</h4>
-                          <span className="text-sm text-gray-500">1 month ago</span>
-                        </div>
-                        <div className="flex text-yellow-400 my-1">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className="h-3 w-3" fill={i < 4 ? "currentColor" : "none"} />
-                          ))}
-                        </div>
-                        <p className="text-gray-700 dark:text-gray-300">
-                          Great introduction. I would have liked more practical examples, but overall it's a solid
-                          foundation.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Button variant="outline" className="w-full">
-                    Load More Reviews
-                  </Button>
+                  ))}
                 </div>
               </div>
-            </TabsContent>
-          </Tabs>
+            ))}
+          </div>
         </div>
 
-        <div>
-          <Card className="sticky top-6">
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Enrollment Card */}
+          <Card>
             <CardContent className="p-6 space-y-4">
-              {isEnrolled ? (
-                <>
-                  <div className="space-y-2">
-                    <h3 className="font-semibold">Your Progress</h3>
-                    <Progress value={courseProgress} className="h-2" />
-                    <p className="text-sm text-gray-500">{courseProgress}% Complete</p>
-                  </div>
-                  <Button className="w-full bg-purple-600 hover:bg-purple-700">
-                    {isCompleted ? "Review Course" : "Continue Learning"}
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <div className="text-center">
-                    <div className="text-3xl font-bold mb-2">{course.price} LEARN</div>
-                    <div className="flex justify-center space-x-4 mb-4">
-                      <div className="flex items-center">
-                        <Award className="h-5 w-5 text-purple-600 mr-1" />
-                        <span>{course.xpReward} XP</span>
-                      </div>
-                      <div className="flex items-center">
-                        <Zap className="h-5 w-5 text-yellow-500 mr-1" />
-                        <span>{course.tokenReward} LEARN</span>
-                      </div>
-                    </div>
-                  </div>
-                  <Button
-                    className="w-full bg-purple-600 hover:bg-purple-700"
-                    onClick={handleEnroll}
-                    disabled={!signer || course.isPaused}
-                  >
-                    {course.isPaused ? "Course Paused" : "Enroll Now"}
-                  </Button>
-                </>
-              )}
-
-              <div className="space-y-3 pt-4">
-                <h3 className="font-semibold">This course includes:</h3>
-                <ul className="space-y-2">
-                  <li className="flex items-center text-sm">
-                    <Clock className="h-4 w-4 mr-2 text-gray-500" />
-                    <span>{course.duration} days of access</span>
-                  </li>
-                  <li className="flex items-center text-sm">
-                    <BookOpen className="h-4 w-4 mr-2 text-gray-500" />
-                    <span>Comprehensive learning modules</span>
-                  </li>
-                  <li className="flex items-center text-sm">
-                    <CheckCircle className="h-4 w-4 mr-2 text-gray-500" />
-                    <span>Quizzes and assignments</span>
-                  </li>
-                  <li className="flex items-center text-sm">
-                    <Award className="h-4 w-4 mr-2 text-gray-500" />
-                    <span>Certificate of completion</span>
-                  </li>
-                  <li className="flex items-center text-sm">
-                    <MessageSquare className="h-4 w-4 mr-2 text-gray-500" />
-                    <span>Instructor Q&A access</span>
-                  </li>
-                </ul>
+              <div className="flex items-center justify-between">
+                <span className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  {Number(course.price) === 0 ? "Free" : `${course.price} LEARN`}
+                </span>
+                <div className="flex items-center space-x-2">
+                  <Award className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  <span className="text-sm">{course.xpReward || 0} XP</span>
+                </div>
               </div>
 
-              <div className="pt-4">
-                <Button variant="outline" className="w-full flex items-center justify-center">
-                  <Share2 className="h-4 w-4 mr-2" />
-                  Share Course
+              <div className="flex items-center space-x-2">
+                <Zap className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />
+                <span className="text-sm">{course.tokenReward || 0} LEARN tokens</span>
+              </div>
+
+              {!isCheckingEnrollment && (
+                <Button
+                  className="w-full"
+                  onClick={isEnrolled ? handleContinueLearning : handleEnroll}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : isEnrolled ? (
+                    <>
+                      <BookOpen className="h-4 w-4 mr-2" />
+                      Continue Learning
+                    </>
+                  ) : (
+                    <>
+                      <BookOpen className="h-4 w-4 mr-2" />
+                      Enroll Now
+                    </>
+                  )}
                 </Button>
+              )}
+
+              <div className="text-sm text-slate-500">
+                <p>✓ {course.modules?.length || 0} modules</p>
+                <p>✓ {totalLessons} lessons</p>
+                <p>✓ {course.duration || 30} days access</p>
+                <p>✓ Certificate of completion</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Instructor Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Instructor</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <div className="h-12 w-12 rounded-full bg-sky-500 flex items-center justify-center text-white font-bold text-lg">
+                  {course.instructor?.name ? course.instructor.name.charAt(0).toUpperCase() : "?"}
+                </div>
+                <div>
+                  <h3 className="font-medium text-slate-900 dark:text-slate-100">
+                    {course.instructor?.name || "Anonymous Instructor"}
+                  </h3>
+                  <p className="text-sm text-slate-500">Course Creator</p>
+                </div>
               </div>
             </CardContent>
           </Card>

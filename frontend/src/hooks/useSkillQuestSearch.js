@@ -2,12 +2,39 @@
 
 import { useState, useCallback } from "react"
 import useSkillQuestCourses from "./useSkillQuestCourses"
+import useContract from "./useContract"
+import SkillQuestABI from "../ABI/SkillQuest.json"
+import useSignerOrProvider from "./useSignerOrProvider"
 
 const useSkillQuestSearch = () => {
   const [searchResults, setSearchResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [allTags, setAllTags] = useState([])
   const { courses, fetchCourses } = useSkillQuestCourses()
+  const contractAddress = import.meta.env.VITE_APP_SKILLQUEST_ADDRESS
+  const { contract } = useContract(contractAddress, SkillQuestABI)
+  const { signer } = useSignerOrProvider()
+
+  // Fetch all course tags
+  const fetchAllTags = useCallback(async () => {
+    if (!contract) return []
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const tags = await contract.getAllCourseTags()
+      setAllTags(tags)
+      return tags
+    } catch (err) {
+      console.error("Error fetching course tags:", err)
+      setError("Failed to fetch tags: " + (err.message || "Unknown error"))
+      return []
+    } finally {
+      setLoading(false)
+    }
+  }, [contract, signer])
 
   // Search courses by title, description, or tags
   const searchCourses = useCallback(
@@ -109,9 +136,11 @@ const useSkillQuestSearch = () => {
 
   return {
     searchResults,
+    allTags,
     searchCourses,
     filterByTag,
     filterByPrice,
+    fetchAllTags,
     loading,
     error,
   }

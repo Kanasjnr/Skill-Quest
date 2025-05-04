@@ -1,5 +1,7 @@
-import { JsonRpcProvider } from "ethers";
+import { ethers } from "ethers";
 
-export const readOnlyProvider = new JsonRpcProvider(
+const readOnlyProvider = new ethers.JsonRpcProvider(
   import.meta.env.VITE_APP_PHAROS_RPC_URL
 );
+
+export default readOnlyProvider;
