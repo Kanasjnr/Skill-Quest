@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAppKitProvider } from "@reown/appkit/react";
 import { BrowserProvider } from "ethers";
+import { useNavigate, useLocation } from 'react-router-dom';
 
 // Create the context
 const SkillQuestContext = createContext();
@@ -15,6 +16,8 @@ export const useSkillQuest = () => {
 
 export const SkillQuestProvider = ({ children }) => {
   const { walletProvider } = useAppKitProvider("eip155");
+  const navigate = useNavigate();
+  const location = useLocation();
   
   // State management
   const [isConnected, setIsConnected] = useState(false);
@@ -32,6 +35,12 @@ export const SkillQuestProvider = ({ children }) => {
         setSigner(newSigner);
         setUserAddress(newSigner.address);
         setIsConnected(true);
+
+        // Navigate to dashboard if we're on the home page or a public page
+        const publicPaths = ['/', '/#features', '/#how-it-works'];
+        if (publicPaths.includes(location.pathname)) {
+          navigate('/dashboard');
+        }
       }).catch((err) => {
         console.error('Error getting signer:', err);
       });
@@ -41,7 +50,7 @@ export const SkillQuestProvider = ({ children }) => {
       setUserAddress('');
       setIsConnected(false);
     }
-  }, [walletProvider]);
+  }, [walletProvider, location.pathname, navigate]);
 
   // Context value
   const value = {

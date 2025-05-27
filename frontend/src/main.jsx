@@ -8,16 +8,17 @@ import { ThemeProvider } from './components/theme-provider'
 import { SkillQuestProvider } from './context/SkillQuestContext'
 import "./index.css"
 
-createRoot(document.getElementById('root')).render(
+const root = createRoot(document.getElementById('root'))
+
+root.render(
   <StrictMode>
-    <ThemeProvider defaultTheme="light">
-      <SkillQuestProvider>
-        <BrowserRouter>
+    <BrowserRouter>
+      <ThemeProvider defaultTheme="light">
+        <SkillQuestProvider>
           <App />
           <ToastContainer position="bottom-right" />
-
-        </BrowserRouter>
-      </SkillQuestProvider>
-    </ThemeProvider>
+        </SkillQuestProvider>
+      </ThemeProvider>
+    </BrowserRouter>
   </StrictMode>,
 )
