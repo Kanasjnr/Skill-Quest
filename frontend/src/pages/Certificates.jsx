@@ -148,7 +148,7 @@ const Certificates = () => {
 
   const viewOnBlockchain = (certificate) => {
     // Open blockchain explorer with the certificate ID
-    window.open(`https://pharosscan.xyz/token/${import.meta.env.VITE_APP_SKILLQUEST_ADDRESS}?a=${certificate.id}`, '_blank')
+    window.open(`https://testnet.pharosscan.xyz/token/${import.meta.env.VITE_APP_SKILLQUEST_ADDRESS}?a=${certificate.id}`, '_blank')
   }
 
   if (loading) {

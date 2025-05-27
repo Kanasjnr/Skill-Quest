@@ -79,12 +79,13 @@ const useSkillQuestToken = () => {
         return false;
       }
 
+      let isWithdrawal = false;
       try {
         const userAddress = await signer.getAddress();
         console.log("[DEBUG] User address:", userAddress);
         
         const amountWei = ethers.parseEther(amount.toString());
-        const isWithdrawal = recipient === userAddress;
+        isWithdrawal = recipient === userAddress;
 
         console.log("[DEBUG] Transfer details:", {
           recipient,
@@ -119,11 +120,7 @@ const useSkillQuestToken = () => {
         try {
           // Transfer tokens directly using the token contract
           console.log("[DEBUG] Initiating transfer transaction...");
-          console.log("[DEBUG] Token contract methods:", Object.keys(tokenContract.functions));
-          
-          const tx = await tokenContract.transfer(recipient, amountWei, {
-            gasLimit: 100000 // Add explicit gas limit
-          });
+          const tx = await tokenContract.transfer(recipient, amountWei);
           console.log("[DEBUG] Transfer transaction sent:", tx.hash);
           
           console.log("[DEBUG] Waiting for transaction confirmation...");
@@ -144,12 +141,7 @@ const useSkillQuestToken = () => {
             throw new Error("Transfer failed");
           }
         } catch (err) {
-          console.error("[DEBUG] Transfer error details:", {
-            message: err.message,
-            code: err.code,
-            data: err.data,
-            stack: err.stack
-          });
+          console.error("[DEBUG] Transfer error details:", err);
           throw err;
         }
       } catch (error) {

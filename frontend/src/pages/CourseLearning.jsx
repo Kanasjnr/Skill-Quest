@@ -48,6 +48,25 @@ const CourseLearning = () => {
           const modules = await getCourseModules(courseId)
           console.log("[DEBUG] Course modules loaded:", modules)
 
+          // Load completed lessons from contract
+          const userAddress = await signer.getAddress()
+          const completedLessonsSet = new Set()
+          for (const module of modules) {
+            for (const lesson of module.lessons) {
+              try {
+                // Check if the lesson is completed using the getCourseProgress function
+                const progress = await contract.getCourseProgress(userAddress, courseId)
+                console.log(`[DEBUG] Checking lesson ${lesson.id} completion for user ${userAddress}:`, progress)
+                if (progress > 0) {
+                  completedLessonsSet.add(lesson.id)
+                }
+              } catch (err) {
+                console.error(`[DEBUG] Error checking lesson completion for lesson ${lesson.id}:`, err)
+              }
+            }
+          }
+          setCompletedLessons(completedLessonsSet)
+
           setCourse({
             ...courseDetails,
             modules
@@ -55,61 +74,149 @@ const CourseLearning = () => {
 
           // Check if all lessons are completed
           const totalLessons = modules.reduce((acc, module) => acc + module.lessons.length, 0)
-          const completedLessonsCount = completedLessons.size
+          const completedLessonsCount = completedLessonsSet.size
           const allLessonsCompleted = totalLessons === completedLessonsCount
 
           if (allLessonsCompleted) {
-            // Start polling for quiz
-            const pollForQuiz = async () => {
+            // Check if quiz already exists
+            try {
+              // First check if we have a valid course ID
+              if (!courseId) {
+                console.log("[DEBUG] No course ID provided")
+                return
+              }
+
+              // Get the current quiz with proper error handling
+              let quizResult
               try {
-                const [quizId, questionIds] = await contract.getCurrentQuiz(courseId)
-                if (quizId > 0) {
-                  const quizData = await contract.quizzes(quizId)
-                  
-                  // Fetch question details for each question ID
-                  const questions = {}
-                  for (const questionId of questionIds) {
-                    const [questionText, options] = await contract.getQuestionDetails(questionId)
-                    questions[questionId.toString()] = {
-                      questionText,
-                      options
-                    }
-                  }
-
-                  setQuiz({
-                    id: quizId.toString(),
-                    courseId: courseId.toString(),
-                    questionIds,
-                    questions,
-                    score: quizData.score,
-                    passed: quizData.passed,
-                    timestamp: quizData.timestamp
-                  })
-                  setQuizSubmitted(quizData.score > 0)
-                  if (quizData.score > 0) {
-                    setQuizScore(quizData.score)
-                  }
-                  return true // Quiz found, stop polling
-                }
-                return false // Quiz not found yet
+                quizResult = await contract.getCurrentQuiz(courseId)
+                console.log("[DEBUG] Raw quiz result:", quizResult)
               } catch (err) {
-                console.log("[DEBUG] Error checking for quiz:", err.message)
-                return false // Error occurred, keep polling
+                console.error("[DEBUG] Error getting current quiz:", err)
+                quizResult = null
               }
+
+              // Generate quiz if no result or invalid result
+              if (!quizResult || !Array.isArray(quizResult) || quizResult.length < 2) {
+                console.log("[DEBUG] Generating new quiz - invalid quiz result")
+                const newQuizId = await generateQuiz(courseId)
+                if (newQuizId) {
+                  const newQuizData = await contract.quizzes(newQuizId)
+                  if (newQuizData) {
+                    setQuiz({
+                      id: newQuizId.toString(),
+                      courseId: courseId.toString(),
+                      questionIds: [],
+                      questions: {},
+                      score: 0,
+                      passed: false,
+                      timestamp: Date.now()
+                    })
+                    toast.success("Quiz is now available!")
+                  }
+                }
+                return
+              }
+
+              // Safely destructure quiz result
+              const quizId = quizResult[0]
+              const questionIds = quizResult[1] || []
+
+              console.log("[DEBUG] Quiz ID:", quizId?.toString(), "Question IDs:", questionIds?.map(id => id.toString()))
+
+              // Generate quiz if no valid quiz ID
+              if (!quizId || quizId.toString() === "0") {
+                console.log("[DEBUG] Generating new quiz - no valid quiz ID")
+                const newQuizId = await generateQuiz(courseId)
+                if (newQuizId) {
+                  const newQuizData = await contract.quizzes(newQuizId)
+                  if (newQuizData) {
+                    setQuiz({
+                      id: newQuizId.toString(),
+                      courseId: courseId.toString(),
+                      questionIds: [],
+                      questions: {},
+                      score: 0,
+                      passed: false,
+                      timestamp: Date.now()
+                    })
+                    toast.success("Quiz is now available!")
+                  }
+                }
+                return
+              }
+
+              // Get quiz data
+              const quizData = await contract.quizzes(quizId)
+              console.log("[DEBUG] Quiz data:", quizData)
+
+              if (!quizData) {
+                console.log("[DEBUG] No quiz data found")
+                return
+              }
+
+              // Initialize quiz state with basic data
+              const quizState = {
+                id: quizId.toString(),
+                courseId: courseId.toString(),
+                questionIds: [],
+                questions: {},
+                score: quizData.score || 0,
+                passed: quizData.passed || false,
+                timestamp: quizData.timestamp || Date.now()
+              }
+
+              // Fetch question details if we have question IDs
+              if (questionIds && Array.isArray(questionIds) && questionIds.length > 0) {
+                quizState.questionIds = questionIds
+                
+                for (const questionId of questionIds) {
+                  try {
+                    const questionResult = await contract.getQuestionDetails(questionId)
+                    if (questionResult && Array.isArray(questionResult) && questionResult.length >= 2) {
+                      const [questionText, options] = questionResult
+                      quizState.questions[questionId.toString()] = {
+                        questionText,
+                        options
+                      }
+                    }
+                  } catch (err) {
+                    console.error(`[DEBUG] Error fetching question ${questionId}:`, err)
+                  }
+                }
+              }
+
+              // Only set quiz state if we have at least some data
+              if (quizState.id && quizState.courseId) {
+                setQuiz(quizState)
+                setQuizSubmitted(quizState.score > 0)
+                if (quizState.score > 0) {
+                  setQuizScore(quizState.score)
+                }
+              } else {
+                console.log("[DEBUG] Invalid quiz state:", quizState)
+                // Generate new quiz if state is invalid
+                const newQuizId = await generateQuiz(courseId)
+                if (newQuizId) {
+                  const newQuizData = await contract.quizzes(newQuizId)
+                  if (newQuizData) {
+                    setQuiz({
+                      id: newQuizId.toString(),
+                      courseId: courseId.toString(),
+                      questionIds: [],
+                      questions: {},
+                      score: 0,
+                      passed: false,
+                      timestamp: Date.now()
+                    })
+                    toast.success("Quiz is now available!")
+                  }
+                }
+              }
+            } catch (err) {
+              console.error("[DEBUG] Error handling quiz:", err)
+              toast.error("Error loading quiz. Please try again.")
             }
-
-            // Poll every 2 seconds until quiz is found
-            const pollInterval = setInterval(async () => {
-              const quizFound = await pollForQuiz()
-              if (quizFound) {
-                clearInterval(pollInterval)
-              }
-            }, 2000)
-
-            // Stop polling after 30 seconds
-            setTimeout(() => {
-              clearInterval(pollInterval)
-            }, 30000)
           }
         } else {
           setError("Course not found")
@@ -125,7 +232,7 @@ const CourseLearning = () => {
     if (courseId) {
       loadCourseDetails()
     }
-  }, [courseId, getCourseDetails, getCourseModules, contract, signer, completedLessons])
+  }, [courseId, getCourseDetails, getCourseModules, contract, signer, generateQuiz])
 
   const handleCompleteLesson = async () => {
     try {
