@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import readOnlyProvider from "../Constants/readOnlyProvider";
 import { toast } from "react-toastify";
 
-const PHAROS_DEVNET_CHAIN_ID = 50002;
+const PHAROS_TESTNET_CHAIN_ID = 688688;
 
 const useSignerOrProvider = () => {
   const [signer, updateSigner] = useState();
@@ -29,9 +29,9 @@ const useSignerOrProvider = () => {
         const chainId = Number(network.chainId);
         console.log("Current network chainId:", chainId);
 
-        if (chainId !== PHAROS_DEVNET_CHAIN_ID) {
-          console.log("Wrong network, expected Pharos Devnet");
-          toast.error("Please switch to Pharos Devnet network");
+        if (chainId !== PHAROS_TESTNET_CHAIN_ID) {
+          console.log("Wrong network, expected Pharos Testnet");
+          toast.error("Please switch to Pharos Testnet");
           updateSigner(null);
           return;
         }
@@ -68,8 +68,8 @@ const useSignerOrProvider = () => {
         const network = await provider.getNetwork();
         const chainId = Number(network.chainId);
 
-        if (chainId !== PHAROS_DEVNET_CHAIN_ID) {
-          toast.error("Please switch to Pharos Devnet network");
+        if (chainId !== PHAROS_TESTNET_CHAIN_ID) {
+          toast.error("Please switch to Pharos Testnet");
           updateSigner(null);
         } else {
           // Refresh signer when switching back to correct network

@@ -9,25 +9,26 @@ if (!projectId) {
   throw new Error('Project ID is not configured in environment variables');
 }
 
-const pharosDevnet = defineChain({
-  id: 50002,
-  caipNetworkId: "eip155:50002",
+const pharosTestnet = defineChain({
+  id: 688688,
+  caipNetworkId: "eip155:688688",
   chainNamespace: "eip155",
-  name: "Pharos Devnet",
+  name: "Pharos Testnet",
   nativeCurrency: {
     decimals: 18,
-    name: "PPT",
-    symbol: "PPT",
+    name: "PHRS",
+    symbol: "PHRS",
   },
   rpcUrls: {
     default: {
-      http: [import.meta.env.VITE_APP_PHAROS_RPC_URL],
+      http: ["https://testnet.dplabs-internal.com"],
+      webSocket: ["wss://testnet.dplabs-internal.com"],
     },
   },
   blockExplorers: {
     default: {
-      name: "Pharos Scan",
-      url: import.meta.env.VITE_APP_PHAROS_EXPLORER_URL,
+      name: "Pharos Explorer",
+      url: "https://testnet.pharosscan.xyz",
     },
   },
   contracts: {
@@ -46,12 +47,12 @@ const metadata = {
 // 4. Create a AppKit instance
 export const appkit = createAppKit({
   adapters: [new EthersAdapter()],
-  networks: [pharosDevnet],
+  networks: [pharosTestnet],
   metadata,
   projectId,
   allowUnsupportedChain: false,
   allWallets: "SHOW",
-  defaultNetwork: pharosDevnet,
+  defaultNetwork: pharosTestnet,
   enableEIP6963: true,
   themeVariables: {
     '--w3m-color-mix': '#1c1917',

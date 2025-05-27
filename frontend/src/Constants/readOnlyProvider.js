@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
 
 const readOnlyProvider = new ethers.JsonRpcProvider(
-  import.meta.env.VITE_APP_PHAROS_RPC_URL
+  "https://testnet.dplabs-internal.com"
 );
 
 export default readOnlyProvider;

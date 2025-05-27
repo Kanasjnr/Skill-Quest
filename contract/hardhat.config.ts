@@ -27,12 +27,12 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
-    pharosDevnet: {
-      url: "https://devnet.dplabs-internal.com",
-      chainId: 50002,
+    pharosTestnet: {
+      url: "https://testnet.dplabs-internal.com",
+      chainId: 688688,
       accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
       gas: 5000000,
-      gasPrice: 10000000000, 
+      gasPrice: 10000000000,
     },
   },
   paths: {
