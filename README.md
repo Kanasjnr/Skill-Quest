@@ -205,4 +205,4 @@ For support:
 - Frontend: Beta
 - Smart Contracts: Completed
 - Documentation: In Progress
-- Mobile App: Planned 
+- Web App: Planned 
